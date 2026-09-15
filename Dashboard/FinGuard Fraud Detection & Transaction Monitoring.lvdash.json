@@ -1,0 +1,1256 @@
+{
+  "datasets": [
+    {
+      "name": "customers",
+      "displayName": "Customer Data",
+      "queryLines": [
+        "SELECT\n",
+        "  customer_id,\n",
+        "  first_name,\n",
+        "  last_name,\n",
+        "  customer_segment,\n",
+        "  risk_score,\n",
+        "  trusted_device_id,\n",
+        "  city,\n",
+        "  country\n",
+        "FROM\n",
+        "  customers\n",
+        "ORDER BY\n",
+        "  risk_score DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "bronze"
+    },
+    {
+      "name": "high_value_alert",
+      "displayName": "High Value Transaction Alerts",
+      "queryLines": [
+        "SELECT\n",
+        "  alert_id,\n",
+        "  alert_timestamp,\n",
+        "  transaction_id,\n",
+        "  customer_id,\n",
+        "  customer_name,\n",
+        "  transaction_amount,\n",
+        "  transaction_limit,\n",
+        "  currency,\n",
+        "  merchant_name,\n",
+        "  merchant_category\n",
+        "FROM\n",
+        "  high_value_transactions_alert\n",
+        "ORDER BY\n",
+        "  alert_timestamp DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "gold"
+    },
+    {
+      "name": "fraud_card_alert",
+      "displayName": "Fraud Card Alerts",
+      "queryLines": [
+        "SELECT\n",
+        "  alert_id,\n",
+        "  alert_timestamp,\n",
+        "  transaction_id,\n",
+        "  customer_id,\n",
+        "  customer_name,\n",
+        "  card_number,\n",
+        "  amount,\n",
+        "  currency,\n",
+        "  merchant_name,\n",
+        "  merchant_category,\n",
+        "  transaction_city,\n",
+        "  transaction_country,\n",
+        "  watchlist_id,\n",
+        "  watch_type,\n",
+        "  risk_level,\n",
+        "  device_id\n",
+        "FROM\n",
+        "  fraud_card_alert\n",
+        "ORDER BY\n",
+        "  alert_timestamp DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "gold"
+    },
+    {
+      "name": "transaction_count_by_minute",
+      "displayName": "Transaction Count by Minute",
+      "queryLines": [
+        "SELECT\n",
+        "  window_start,\n",
+        "  window_end,\n",
+        "  transaction_count\n",
+        "FROM\n",
+        "  transaction_count_by_minute\n",
+        "ORDER BY\n",
+        "  window_start DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "gold"
+    },
+    {
+      "name": "silver_transactions",
+      "displayName": "All Transactions",
+      "queryLines": [
+        "SELECT\n",
+        "  transaction_id,\n",
+        "  customer_id,\n",
+        "  merchant_name,\n",
+        "  merchant_category,\n",
+        "  amount,\n",
+        "  currency,\n",
+        "  transaction_type,\n",
+        "  payment_channel,\n",
+        "  city,\n",
+        "  country,\n",
+        "  is_international,\n",
+        "  transaction_timestamp,\n",
+        "  status\n",
+        "FROM\n",
+        "  transactions\n",
+        "ORDER BY\n",
+        "  transaction_timestamp DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "silver"
+    },
+    {
+      "name": "device_mismatch",
+      "displayName": "Device Mismatch Alerts",
+      "queryLines": [
+        "SELECT\n",
+        "  a.alert_id,\n",
+        "  a.customer_id,\n",
+        "  a.device_id as alert_device_id,\n",
+        "  c.trusted_device_id,\n",
+        "  CASE\n",
+        "    WHEN a.device_id != c.trusted_device_id THEN 'Mismatch'\n",
+        "    ELSE 'Match'\n",
+        "  END as device_status\n",
+        "FROM\n",
+        "  fraud_card_alert a\n",
+        "    LEFT JOIN finguard2.bronze.customers c\n",
+        "      ON a.customer_id = c.customer_id\n",
+        "WHERE\n",
+        "  a.device_id IS NOT NULL"
+      ],
+      "catalog": "finguard2",
+      "schema": "gold"
+    },
+    {
+      "name": "high_risk_customers",
+      "displayName": "High Risk Customers with Alerts",
+      "queryLines": [
+        "SELECT\n",
+        "  c.customer_id,\n",
+        "  c.first_name,\n",
+        "  c.last_name,\n",
+        "  c.risk_score,\n",
+        "  c.customer_segment,\n",
+        "  COUNT(a.alert_id) as alert_count\n",
+        "FROM\n",
+        "  finguard2.bronze.customers c\n",
+        "    LEFT JOIN finguard2.gold.fraud_card_alert a\n",
+        "      ON c.customer_id = a.customer_id\n",
+        "WHERE\n",
+        "  c.risk_score > 70\n",
+        "GROUP BY\n",
+        "  c.customer_id,\n",
+        "  c.first_name,\n",
+        "  c.last_name,\n",
+        "  c.risk_score,\n",
+        "  c.customer_segment\n",
+        "ORDER BY\n",
+        "  c.risk_score DESC,\n",
+        "  alert_count DESC"
+      ],
+      "catalog": "finguard2",
+      "schema": "bronze"
+    }
+  ],
+  "pages": [
+    {
+      "name": "019782b7",
+      "displayName": "Real-Time Monitoring",
+      "layout": [
+        {
+          "widget": {
+            "name": "total_transaction_volume",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "transaction_count_by_minute",
+                  "fields": [
+                    {
+                      "name": "sum(transaction_count)",
+                      "expression": "SUM(`transaction_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total Transaction Volume"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(transaction_count)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "active_fraud_alerts",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Active Fraud Alerts"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(alert_id)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "high_value_alerts",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "high_value_alert",
+                  "fields": [
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "High Value Alerts"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(alert_id)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "alert_severity",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "risk_level",
+                      "expression": "`risk_level`"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Alert Severity"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "risk_level",
+                  "displayName": "risk_level",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(alert_id)",
+                  "displayName": "alert_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "risk_level",
+                  "displayName": "risk_level",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "transactions_per_minute",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "transaction_count_by_minute",
+                  "fields": [
+                    {
+                      "name": "minutely(window_start)",
+                      "expression": "DATE_TRUNC(\"MINUTE\", `window_start`)"
+                    },
+                    {
+                      "name": "sum(transaction_count)",
+                      "expression": "SUM(`transaction_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Transactions Per Minute"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "minutely(window_start)",
+                  "displayName": "Minute",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(transaction_count)",
+                  "displayName": "transaction_count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "alert_distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    },
+                    {
+                      "name": "watch_type",
+                      "expression": "`watch_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Alert Distribution by Type"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(alert_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "alert_id"
+                },
+                "color": {
+                  "fieldName": "watch_type",
+                  "displayName": "watch_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "transaction_analysis",
+      "displayName": "Transaction Analysis",
+      "layout": [
+        {
+          "widget": {
+            "name": "volume_by_category",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "silver_transactions",
+                  "fields": [
+                    {
+                      "name": "merchant_category",
+                      "expression": "`merchant_category`"
+                    },
+                    {
+                      "name": "count(transaction_id)",
+                      "expression": "COUNT(`transaction_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Transaction Volume by Merchant Category"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "merchant_category",
+                  "displayName": "merchant_category",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(transaction_id)",
+                  "displayName": "transaction_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "merchant_category",
+                  "displayName": "merchant_category",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "payment_channel",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "silver_transactions",
+                  "fields": [
+                    {
+                      "name": "count(transaction_id)",
+                      "expression": "COUNT(`transaction_id`)"
+                    },
+                    {
+                      "name": "payment_channel",
+                      "expression": "`payment_channel`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Payment Channel Analysis"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(transaction_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "transaction_id"
+                },
+                "color": {
+                  "fieldName": "payment_channel",
+                  "displayName": "payment_channel",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "intl_vs_domestic",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "silver_transactions",
+                  "fields": [
+                    {
+                      "name": "is_international",
+                      "expression": "`is_international`"
+                    },
+                    {
+                      "name": "count(transaction_id)",
+                      "expression": "COUNT(`transaction_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "International vs Domestic"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "is_international",
+                  "displayName": "is_international",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(transaction_id)",
+                  "displayName": "transaction_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "is_international",
+                  "displayName": "is_international",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "amount_distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "silver_transactions",
+                  "fields": [
+                    {
+                      "name": "amount",
+                      "expression": "`amount`"
+                    },
+                    {
+                      "name": "count(transaction_id)",
+                      "expression": "COUNT(`transaction_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Transaction Amount Distribution"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "amount",
+                  "displayName": "amount",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(transaction_id)",
+                  "displayName": "transaction_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "amount",
+                  "displayName": "amount",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "top_merchants",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "silver_transactions",
+                  "fields": [
+                    {
+                      "name": "merchant_name",
+                      "expression": "`merchant_name`"
+                    },
+                    {
+                      "name": "count(transaction_id)",
+                      "expression": "COUNT(`transaction_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Merchants by Transaction Count"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "merchant_name"
+                  },
+                  {
+                    "fieldName": "count(transaction_id)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "fraud_insights",
+      "displayName": "Fraud Detection Insights",
+      "layout": [
+        {
+          "widget": {
+            "name": "geo_hotspots",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "transaction_country",
+                      "expression": "`transaction_country`"
+                    },
+                    {
+                      "name": "transaction_city",
+                      "expression": "`transaction_city`"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Geographic Fraud Hotspots"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "transaction_country"
+                  },
+                  {
+                    "fieldName": "transaction_city"
+                  },
+                  {
+                    "fieldName": "count(alert_id)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "watchlist_matches",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "watchlist_id",
+                      "expression": "`watchlist_id`"
+                    },
+                    {
+                      "name": "watch_type",
+                      "expression": "`watch_type`"
+                    },
+                    {
+                      "name": "risk_level",
+                      "expression": "`risk_level`"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top Watchlist Matches"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "watchlist_id"
+                  },
+                  {
+                    "fieldName": "watch_type"
+                  },
+                  {
+                    "fieldName": "risk_level"
+                  },
+                  {
+                    "fieldName": "count(alert_id)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "device_alerts",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "device_mismatch",
+                  "fields": [
+                    {
+                      "name": "device_status",
+                      "expression": "`device_status`"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Device-Based Alerts"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "device_status",
+                  "displayName": "device_status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(alert_id)",
+                  "displayName": "alert_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "device_status",
+                  "displayName": "device_status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "alerts_over_time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fraud_card_alert",
+                  "fields": [
+                    {
+                      "name": "hourly(alert_timestamp)",
+                      "expression": "DATE_TRUNC(\"HOUR\", `alert_timestamp`)"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Fraud Alerts Over Time"
+              },
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "hourly(alert_timestamp)",
+                  "displayName": "Time",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(alert_id)",
+                  "displayName": "Alert Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "customer_risk",
+      "displayName": "Customer Risk Analysis",
+      "layout": [
+        {
+          "widget": {
+            "name": "risk_distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customers",
+                  "fields": [
+                    {
+                      "name": "risk_score",
+                      "expression": "`risk_score`"
+                    },
+                    {
+                      "name": "count(customer_id)",
+                      "expression": "COUNT(`customer_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Customer Risk Score Distribution"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "risk_score",
+                  "displayName": "risk_score",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(customer_id)",
+                  "displayName": "customer_id",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "risk_score",
+                  "displayName": "risk_score",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "high_risk_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "high_risk_customers",
+                  "fields": [
+                    {
+                      "name": "first_name",
+                      "expression": "`first_name`"
+                    },
+                    {
+                      "name": "last_name",
+                      "expression": "`last_name`"
+                    },
+                    {
+                      "name": "risk_score",
+                      "expression": "`risk_score`"
+                    },
+                    {
+                      "name": "customer_segment",
+                      "expression": "`customer_segment`"
+                    },
+                    {
+                      "name": "alert_count",
+                      "expression": "`alert_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "High Risk Customers"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "first_name"
+                  },
+                  {
+                    "fieldName": "last_name"
+                  },
+                  {
+                    "fieldName": "risk_score"
+                  },
+                  {
+                    "fieldName": "customer_segment"
+                  },
+                  {
+                    "fieldName": "alert_count"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "segment_analysis",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customers",
+                  "fields": [
+                    {
+                      "name": "count(customer_id)",
+                      "expression": "COUNT(`customer_id`)"
+                    },
+                    {
+                      "name": "customer_segment",
+                      "expression": "`customer_segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Customer Segment Analysis"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count(customer_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "customer_id"
+                },
+                "color": {
+                  "fieldName": "customer_segment",
+                  "displayName": "customer_segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
