@@ -1,6 +1,6 @@
 # FinGuard2 Streaming Pipeline
 
-Real-time fraud detection and transaction monitoring pipeline built with **Lakeflow Spark Declarative Pipelines (SDP)** on Databricks. The pipeline ingests streaming transaction data from Kafka and fraud watchlist files from cloud storage, processes them through a medallion architecture (bronze → silver → gold), and generates real-time fraud alerts with email notifications.
+Real-time fraud detection and transaction monitoring pipeline built with Lakeflow Spark Declarative Pipelines on Databricks. The pipeline ingests streaming transaction data from Kafka, Databricks connector and fraud watchlist files from cloud storage, processes them through a medallion architecture (bronze → silver → gold), and generates real-time fraud alerts with email notifications.
 
 ## Architecture
 
@@ -20,9 +20,9 @@ UC Volume (JSON files)    Layer       Layer       Layer
 | Setting | Value |
 | --- | --- |
 | Catalog | `finguard2` |
-| Compute | Serverless + Photon |
+| Compute | Serverless |
 | Channel | Current |
-| Language | Python (PySpark SDP) |
+| Language | Python (PySpark) |
 
 ## Medallion Layers
 
